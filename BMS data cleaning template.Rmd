@@ -1,0 +1,142 @@
+---
+title: "General BMS Energy Consumption Cleaning Script"
+author: "JM"
+date: `r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load necessary packages
+library(tidyverse)
+```
+
+```{r}
+# Set working directory to the specified path
+# The specified path is where your data is located
+setwd()
+```
+
+```{r}
+# This "gets" the current working directory that you have set earlier
+# This is useful to check if the working directory was set correctly
+getwd()
+```
+
+```{r}
+# Load df then put into a tibble
+# A tibble is like a modern version of a data.frame, but with better printing and handling of large datasets
+df <- read_csv() # Insert file path here
+df_copy <- as_tibble(df)
+```
+
+```{r}
+# How many columns are useful?
+n <- 2
+
+# Select important columns
+df_copy <- df_copy %>%
+  select(1:n)
+
+# Show first 6 rows
+head(df_copy)
+```
+
+```{r}
+# Have a glimpse of the df
+# Tibble already shows the data types per column, adding glimpse is just good practice
+glimpse(df_copy)
+```
+
+```{r}
+# Rename columns if needed
+df_copy <- df_copy %>%
+  rename_with(~ c("Timestamp", "Consumption"), .cols = 1:n)
+
+# Show first 6 rows
+head(df_copy)
+```
+
+```{r}
+# summary() provides a quick overview of our dataset, e.g., min, max, mean, median, quartiles, number of NAs, etc.
+summary(df_copy)
+```
+
+```{r}
+# dim() returns the number of rows and columns of datasets
+# I like using this to compare how significant the number of NAs compared to the size of the dataset
+dim(df_copy)
+```
+
+```{r}
+# Convert to appropriate data type and aggregate data
+# Orders depend on the datetime format of your raw BMS data
+# Set appropriate timezone with tz
+df_copy <- df_copy %>%
+  mutate(Timestamp = parse_date_time(Timestamp, 
+                                     orders = c("mdy HMS", "mdy HM", "mdy H"),
+                                     tz = "Pacific/Auckland")) %>%
+  mutate(Year = year(Timestamp),
+         Month = month(Timestamp),
+         Day = day(Timestamp)) %>%
+  mutate(Date = make_date(Year, Month, Day)) %>% # Aggregate to daily. Can aggregate to hourly or half hourly level depending on need.
+  select(Date, Consumption) %>%
+  filter(!is.na(Consumption) & Consumption != 0) # I assumed that the NAs and zeros are insignificant in this case. This is not always the case.
+
+# Show first 6 rows
+head(df_copy)
+```
+
+```{r}
+summary(df_copy)
+```
+
+```{r}
+# Calculate the change in consumption
+# Functions used:
+# lag() shifts the Consumption column down by one row, so each row gets the previous row's value
+# default = first() ensures that the first row does not become NA, instead it substracts itself resulting it to 0
+# This method is appropriate if the consumption data does not reset to a "default" value every new day, and instead the first entry of a new day builds upon the last entry of the previous day
+df_clean <- df_copy %>%
+  arrange(Date) %>%
+  mutate(Energy_Use = Consumption - lag(Consumption, default = first(Consumption))) %>% # This calculates the change in Consumption from the previous row
+  group_by(Date) %>%
+  summarise(daily_energy_use = sum(Energy_Use, na.rm = TRUE)) %>%
+  ungroup()
+
+# If your energy data is organised by distinct days (or any grouping) and you want to calculate the change in consumption within each day independently
+# df_clean <- df_copy %>%
+#   group_by(Date) %>%
+#   mutate(Energy_Use = Consumption - lag(Consumption, default = first(Consumption))) %>% # This calculates the change in Consumption from the previous row
+#   summarise(daily_energy_use = sum(Energy_Use, na.rm = TRUE)) %>%
+#   ungroup()
+
+# Show first 6 rows
+head(df_clean)
+```
+
+```{r}
+# A quick plot helps verify that the cleaned data looks correct before analysis
+ggplot(df_clean, aes(x = Date, y = daily_energy_use)) +
+  geom_line() +
+  theme_minimal()
+```
+
+```{r}
+# Sum the total energy consumption across dataset if needed
+df_clean %>%
+  summarise(total = sum(daily_energy_use))
+```
+
+```{r}
+# Write clean df to desired filetype (optional)
+file_path <- # set filepath where clean df will be saved
+write_csv(df_clean, file_path)
+```
+
+
+
+
