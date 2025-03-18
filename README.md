@@ -1,5 +1,6 @@
-# Desigo CC BMS Data Cleaning in R  
-This repository contains an **R script for cleaning and processing data from Desigo CC BMS** (Building Management System).  
+# Desigo CC BMS Data Cleaning in R
+This repository contains **R code in R Markdown format (.Rmd)**.
+This is an **R script for cleaning and processing data from Desigo CC BMS** (Building Management System).  
 It is useful for **energy data analysis, automation, and pre-processing** before visualization in PowerBI or Tableau.  
 
 ## Features
